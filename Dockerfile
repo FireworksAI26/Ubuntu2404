@@ -1,4 +1,4 @@
-FROM runpod/base:0.4.0-ubuntu22
+FROM runpod/base:0.7.0-ubuntu2004
 
 ENV DEBIAN_FRONTEND=noninteractive
 
