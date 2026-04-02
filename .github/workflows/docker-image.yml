@@ -2,12 +2,11 @@ name: Build and Push RunPod Image
 
 on:
   push:
-    branches: [ "main" ]  # Runs when you push to the main branch
+    branches: [ "main", "master" ] # Runs on push to main or master
 
-# THIS SECTION FIXES THE "INSUFFICIENT SCOPES" ERROR
 permissions:
   contents: read
-  packages: write
+  packages: write  # Crucial for pushing the image
 
 jobs:
   build-and-push:
@@ -31,9 +30,7 @@ jobs:
         with:
           context: .
           push: true
-          # This tags the image with your github username/repo-name
-          tags: |
-            ghcr.io/${{ github.repository_owner }}/runpod-desktop:latest
-          # Helps speed up subsequent builds
+          # This creates the correct address for RunPod to find
+          tags: ghcr.io/${{ github.repository_owner }}/runpod-desktop:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
