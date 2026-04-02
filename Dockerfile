@@ -1,31 +1,42 @@
 FROM runpod/base:0.7.0-ubuntu2004
 
 ENV DEBIAN_FRONTEND=noninteractive
+ENV DISPLAY=:1
 
-# Update and install full Ubuntu desktop
-RUN apt update -y && apt upgrade -y && \
-    apt install -y ubuntu-desktop wget curl sudo expect dbus-x11 && \
-    apt clean && rm -rf /var/lib/apt/lists/*
+# Install Ubuntu Desktop and VNC/noVNC tools
+RUN apt update && apt upgrade -y && \
+    apt install -y \
+    ubuntu-desktop \
+    tigervnc-standalone-server \
+    novnc websockify \
+    wget curl sudo dbus-x11 \
+    && apt clean && rm -rf /var/lib/apt/lists/*
 
-# Download and install Chrome Remote Desktop
-RUN wget -q https://dl.google.com/linux/direct/chrome-remote-desktop_current_amd64.deb && \
-    dpkg -i chrome-remote-desktop_current_amd64.deb || apt-get install -f -y && \
-    rm chrome-remote-desktop_current_amd64.deb
-
-# Configure GNOME session for CRD
-RUN echo "exec /usr/bin/gnome-session" > /etc/chrome-remote-desktop-session
-
-# Disable NetworkManager conflict (ubuntu-desktop brings it in, conflicts with container networking)
-RUN systemctl disable NetworkManager 2>/dev/null || true && \
-    systemctl disable systemd-networkd 2>/dev/null || true
-
-# Create non-root user (CRD refuses to run as root)
+# Create non-root user
 RUN useradd -m -s /bin/bash remoteuser && \
     echo "remoteuser:remoteuser" | chpasswd && \
-    usermod -aG sudo,chrome-remote-desktop remoteuser && \
+    usermod -aG sudo remoteuser && \
     echo "remoteuser ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 
-# Startup script
+# Setup noVNC web interface
+RUN ln -s /usr/share/novnc/vnc.html /usr/share/novnc/index.html
+
+# Configure the VNC startup script to launch GNOME
+WORKDIR /home/remoteuser
+RUN mkdir -p .vnc
+RUN echo "#!/bin/sh\n\
+export XDG_CURRENT_DESKTOP=GNOME\n\
+export GNOME_SHELL_SESSION_MODE=ubuntu\n\
+export DESKTOP_SESSION=ubuntu\n\
+/usr/bin/gnome-session" > .vnc/xstartup && chmod +x .vnc/xstartup
+
+# Set a default VNC password
+RUN echo "password" | vncpasswd -f > .vnc/passwd && chmod 600 .vnc/passwd
+RUN chown -R remoteuser:remoteuser /home/remoteuser
+
+# Expose port 6080 for noVNC
+EXPOSE 6080
+
 COPY start.sh /start.sh
 RUN chmod +x /start.sh
 
